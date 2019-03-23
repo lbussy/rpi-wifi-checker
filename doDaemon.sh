@@ -1,0 +1,188 @@
+#!/bin/bash
+
+# This file is part of LBussy's Raspberry Pi WiFi Checker (rpi-wifi-checker).
+# Copyright (C) 2019 Lee C. Bussy (@LBussy)
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# Location for check script instalation
+define SCRIPTLOC RUNSCRIPT DAEMONNAME RUNAS
+SCRIPTLOC="/usr/local/bin"
+RUNSCRIPT="checkWiFi.sh"
+DAEMONNAME="wificheck"
+RUNAS="root"
+CMDLINE="curl -L wifi.brewpiremix.com | sudo bash"
+
+############
+### Init
+############
+
+init() {
+    # Change to current dir (assumed to be in a repo) so we can get the script info
+    pushd . &> /dev/null || exit 1
+    SCRIPTPATH="$( cd "$(dirname "$0")" || exit ; pwd -P )"
+    THISSCRIPT="$(basename "$0")"
+    SCRIPTNAME="${THISSCRIPT%%.*}"
+}
+
+############
+### Functions to catch/display errors during execution
+############
+
+warn() {
+    local fmt="$1"
+    command shift 2>/dev/null
+    echo -e "$fmt"
+    echo -e "${@}"
+    echo -e "\n*** ERROR ERROR ERROR ERROR ERROR ***"
+    echo -e "-------------------------------------"
+    echo -e "See above lines for error message."
+    echo -e "Setup NOT completed.\n"
+}
+
+die() {
+    local st="$?"
+    warn "$@"
+    exit "$st"
+}
+
+############
+### Make sure command is running with sudo
+############
+
+checkroot() {
+  local retval
+  if [[ "$EUID" -ne 0 ]]; then
+    sudo -n true 2> /dev/null
+    retval="$?"
+    if [ "$retval" -eq 0 ]; then
+      echo -e "\nNot running as root, relaunching correctly.\n"
+      sleep 2
+      eval "$CMDLINE"
+      exit "$?"
+    else
+      # sudo not available, give instructions
+      echo -e "\nThis script must be run with root privileges."
+      echo -e "Enter the following command as one line:"
+      echo -e "$CMDLINE" 1>&2
+      exit 1
+    fi
+  fi
+}
+
+############
+### --help and --version functionality
+############
+
+# usage outputs to stdout the --help usage message.
+
+usage() {
+    echo -e "\n$SCRIPTNAME usage: sudo $SCRIPTPATH/$THISSCRIPT"
+}
+
+# version outputs to stdout the --version message.
+version() {
+cat << EOF
+
+"$SCRIPTNAME" Copyright (C) 2019 Lee C. Bussy (@LBussy)
+This program comes with ABSOLUTELY NO WARRANTY.
+
+This is free software, and you are welcome to redistribute it
+under certain conditions.
+
+There is NO WARRANTY, to the extent permitted by law.
+EOF
+}
+
+help_ver() {
+    local arg
+    arg="$1"
+    if [ -n "$arg" ]; then
+        arg="${arg//-}" # Strip out all dashes
+        if [[ "$arg" == "h"* ]]; then usage; exit 0; fi
+        if [[ "$arg" == "v"* ]]; then version; exit 0; fi
+    fi
+}
+
+############
+### Create systemd unit file
+### Required:
+###   scriptName - Name of script to run under Bash
+###   daemonName - Name to be used for Unit
+###   userName - Context under which daemon shall be run
+############
+
+createdaemon () {
+    local scriptName="$SCRIPTLOC/$1 -d"
+    local daemonName="${2,,}"
+    local userName="$3"
+    local unitFile="/etc/systemd/system/$daemonName.service"
+    if [ -f "$unitfile" ]; then
+        echo -e "\nStopping $daemonName daemon.";
+        systemctl stop "$daemonName";
+        echo -e "Disabling $daemonName daemon.";
+        systemctl disable "$daemonName";
+        echo -e "Removing unit file $unitFile";
+        rm "$unitFile"
+    fi
+    echo -e "\nCreating unit file for $daemonName."
+    echo -e "# Created for BrewPi version $VERSION" > "$unitFile"
+    echo -e "[Unit]" >> "$unitFile"
+    echo -e "Description=Service for: $daemonName" >> "$unitFile"
+    echo -e "Documentation=https://github.com/lbussy/rpi-wifi-checker" >> "$unitFile"
+    echo -e "After=multi-user.target" >> "$unitFile"
+    echo -e "\n[Service]" >> "$unitFile"
+    echo -e "Type=simple" >> "$unitFile"
+    echo -e "Restart=on-failure" >> "$unitFile"
+    echo -e "RestartSec=1" >> "$unitFile"
+    echo -e "User=$userName" >> "$unitFile"
+    echo -e "Group=$userName" >> "$unitFile"
+    echo -e "ExecStart=/bin/bash $scriptName" >> "$unitFile"
+    echo -e "SyslogIdentifier=$daemonName" >> "$unitFile"
+    echo -e "\n[Install]" >> "$unitFile"
+    echo -e "WantedBy=multi-user.target" >> "$unitFile"
+    chown root:root "$unitFile"
+    chmod 0644 "$unitFile"
+    echo -e "Reloading systemd config."
+    systemctl daemon-reload
+    echo -e "Enabling $daemonName daemon."
+    eval "systemctl enable $daemonName"
+    echo -e "Starting $daemonName daemon."
+    eval "systemctl restart $daemonName"
+}
+
+############
+### Print banner
+############
+
+banner(){
+    echo -e "\n***Script $THISSCRIPT $1.***"
+}
+
+############
+### Main function
+############
+
+main() {
+    local retval
+    init "$@"
+    checkroot "$@"
+    help_ver "$@"
+    banner "starting"
+    retval="$?"
+    if [[ "$retval" == 0 ]]; then createdaemon "$RUNSCRIPT" "$DAEMONNAME" "$RUNAS"; fi
+    banner "complete"
+}
+
+main "$@" && exit 0

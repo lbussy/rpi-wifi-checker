@@ -30,6 +30,8 @@ INTERVAL=10
 # Log file location
 declare LOG_LOC
 LOG_LOC="/var/log"
+# Reboot on failure
+REBOOT=false
 # ** No changes past this point **
 # Global constants declaration
 declare STDOUT STDERR SCRIPTPATH THISSCRIPT SCRIPTNAME WLAN INTERACT
@@ -41,7 +43,7 @@ declare -i fails=0
 ############
 
 init() {
-    # Change to current dir (assumed to be in a repo) so we can get the git info
+    # Change to current dir (assumed to be in a repo) so we can get the script info
     pushd . &> /dev/null || exit 1
     SCRIPTPATH="$( cd "$(dirname "$0")" || exit ; pwd -P )"
     THISSCRIPT="$(basename "$0")"
@@ -102,18 +104,16 @@ check_root() {
 # usage outputs to stdout the --help usage message.
 
 usage() {
-    echo -e "$THISSCRIPT"
-    Usage: sudo ./"$THISSCRIPT"
+    echo -e "\n$SCRIPTNAME usage: sudo $SCRIPTPATH/$THISSCRIPT"
 }
 
 # version outputs to stdout the --version message.
 version() {
 cat << EOF
 
-
-
-"$THISSCRIPT" Copyright (C) 2019 Lee C. Bussy (@LBussy)
+"$SCRIPTNAME" Copyright (C) 2019 Lee C. Bussy (@LBussy)
 This program comes with ABSOLUTELY NO WARRANTY.
+
 This is free software, and you are welcome to redistribute it
 under certain conditions.
 
@@ -125,7 +125,7 @@ help_ver() {
     local arg
     arg="$1"
     if [ -n "$arg" ]; then
-        arg="${1//-}" # Strip out all dashes
+        arg="${arg//-}" # Strip out all dashes
         if [[ "$arg" == "h"* ]]; then usage; exit 0; fi
         if [[ "$arg" == "v"* ]]; then version; exit 0; fi
     fi
@@ -152,9 +152,9 @@ log() {
             level="INFO"
         ;;
     esac
-    logmsg="$now $name $level: $msg"
     # If we are interacive, send to tty (straight echo will break func here)
-    [ "$INTERACT" == true ] && echo -e "$logmsg" > /dev/tty && return
+    [ "$INTERACT" == true ] && echo -e "$level: $msg" > /dev/tty && return
+    logmsg="$now $name $level: $msg"
     # Send "INFO to stdout else (WARN and ERROR) send to stderr
     if [ "$level" = "INFO" ]; then
         echo "$logmsg" >> "$LOG_LOC/$STDOUT"
@@ -170,12 +170,12 @@ log() {
 getgateway() {
     local gateway
     # Get gateway address
-    gateway=$(/sbin/ip route | grep -m 1 default | awk '{ print $3 }')
+    gateway=$(/sbin/ip route | grep -m 1 'default' | awk '{ print $3 }')
     ### Sometimes network is so hosed, gateway IP is missing from route
     if [ -z "$gateway" ]; then
         # Try to restart interface and get gateway again
         restart
-        gateway=$(/sbin/ip route | grep -m 1 default | awk '{ print $3 }')
+        gateway=$(/sbin/ip route | grep -m 1 'default' | awk '{ print $3 }')
     fi
     echo "$gateway"
 }
@@ -213,7 +213,6 @@ do_ping() {
 
 restart() {
     ### Restart wireless interface
-    log 3 "Gateway unreachable. Restarting $WLAN."
     ip link set dev "$WLAN" down
     ip link set dev "$WLAN" up
 }
@@ -254,16 +253,28 @@ check_loop() {
     while :
     do
         if [ -z "$WLAN" ]; then
-            log 3 "Unable to determine wireless interface name.  Exiting."
-            exit 1
+            if [ "$REBOOT" == true ]; then
+                log 3 "Unable to determine wireless interface name.  Rebooting."
+                reboot
+            else
+                log 3 "Unable to determine wireless interface name.  Exiting."
+                exit 1
+            fi
         fi
         gateway=$(getgateway)
         if [ -z "$gateway" ]; then
-            log 3 "Unable to determine gateway.  Exiting."
             exit 1
+            if [ "$REBOOT" == true ]; then
+                log 3 "Unable to determine gateway.  Rebooting."
+                reboot
+            else
+                log 3 "Unable to determine gateway.  Exiting."
+                exit 1
+            fi
         fi
         before=$(date +%s)
         if [ "$(do_ping "$gateway")" == false ]; then
+            log 3 "Gateway unreachable. Restarting $WLAN."
             restart
         fi
         fails=0
@@ -290,8 +301,10 @@ check_once() {
         exit 1
     fi
     if [ "$(do_ping "$gateway")" == true ]; then
+        log 1 "Ping of gateway $gateway successful."
         fails=0
     else
+        log 3 "Gateway unreachable. Restarting $WLAN."
         restart
         fails=0
     fi
