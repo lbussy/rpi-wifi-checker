@@ -31,8 +31,10 @@ INTERVAL=10
 # Log file location
 declare LOG_LOC
 LOG_LOC="/var/log"
-# Global variables declaration - No changes past this point
+# ** No changes past this point **
+# Global constants declaration
 declare STDOUT STDERR SCRIPTPATH THISSCRIPT SCRIPTNAME WLAN INTERACT
+# Global variables declaration
 declare -i fails=0
 
 ############
@@ -43,15 +45,12 @@ init() {
     # Change to current dir (assumed to be in a repo) so we can get the git info
     pushd . &> /dev/null || exit 1
     SCRIPTPATH="$( cd "$(dirname "$0")" || exit ; pwd -P )"
-    cd "$SCRIPTPATH" || exit 1 # Move to where the script is
-    
     THISSCRIPT="$(basename "$0")"
     SCRIPTNAME="${THISSCRIPT%%.*}"
     STDOUT="$SCRIPTNAME.log"
-    STDERR="$SCRIPTNAME.log"
-    
+    STDERR="$SCRIPTNAME.err"
     # Get wireless lan device name and gateway
-    WLAN=$(cat /proc/net/wireless | perl -ne '/(\w+):/ && print $1')
+    WLAN="$(iw dev | awk '$1=="Interface"{print $2}')"
 }
 
 ############
@@ -69,7 +68,7 @@ warn() {
     echo -e "Setup NOT completed.\n"
 }
 
-die () {
+die() {
     local st="$?"
     warn "$@"
     exit "$st"
@@ -101,15 +100,15 @@ check_root() {
 ### --help and --version functionality
 ############
 
-# func_usage outputs to stdout the --help usage message.
+# usage outputs to stdout the --help usage message.
 
-func_usage () {
+usage() {
     echo -e "$THISSCRIPT"
     Usage: sudo ./"$THISSCRIPT"
 }
 
-# func_version outputs to stdout the --version message.
-func_version () {
+# version outputs to stdout the --version message.
+version() {
 cat << EOF
 
 "$THISSCRIPT"
@@ -130,8 +129,8 @@ help_ver() {
     arg="$1"
     if [ -n "$arg" ]; then
         arg="${1//-}" # Strip out all dashes
-        if [[ "$arg" == "h"* ]]; then func_usage; exit 0; fi
-        if [[ "$arg" == "v"* ]]; then func_version; exit 0; fi
+        if [[ "$arg" == "h"* ]]; then usage; exit 0; fi
+        if [[ "$arg" == "v"* ]]; then version; exit 0; fi
     fi
 }
 
@@ -171,14 +170,14 @@ log() {
 ### Return current wireless LAN gateway
 ############
 
-func_getgateway() {
+getgateway() {
     local gateway
     # Get gateway address
     gateway=$(/sbin/ip route | grep -m 1 default | awk '{ print $3 }')
     ### Sometimes network is so hosed, gateway IP is missing from route
     if [ -z "$gateway" ]; then
         # Try to restart interface and get gateway again
-        func_restart
+        restart
         gateway=$(/sbin/ip route | grep -m 1 default | awk '{ print $3 }')
     fi
     echo "$gateway"
@@ -188,8 +187,9 @@ func_getgateway() {
 ### Perform ping test
 ############
 
-func_ping() {
-    local retval
+do_ping() {
+    local retval gateway
+    gateway="$1"
     while [ "$fails" -lt "$MAX_FAILURES" ]; do
         [ "$fails" -gt 0 ] && sleep "$INTERVAL"
         # Try pinging
@@ -214,9 +214,9 @@ func_ping() {
 ### Restart WLAN
 ############
 
-func_restart() {
+restart() {
     ### Restart wireless interface
-    log 3 "Router unreachable. Restarting $WLAN."
+    log 3 "Gateway unreachable. Restarting $WLAN."
     ip link set dev "$WLAN" down
     ip link set dev "$WLAN" up
 }
@@ -225,7 +225,7 @@ func_restart() {
 ### Determine if we are running in CRON or Daemon mode
 ############
 
-func_getinteract() {
+getinteract() {
     # See if we are interactive (no cron or daemon (-d) mode)
     pstree -s $$ | grep -q bash && cron=false || cron=true
     [[ ! "${1//-}" == "d"* ]] && daemon=false || daemon=true
@@ -240,7 +240,7 @@ func_getinteract() {
 ### Print banner
 ############
 
-func_banner(){
+banner(){
     echo -e "\n***Script $THISSCRIPT $1.***"
 }
 
@@ -260,18 +260,18 @@ check_loop() {
             log 3 "Unable to determine wireless interface name.  Exiting."
             exit 1
         fi
-        gateway=$(func_getgateway)
+        gateway=$(getgateway)
         if [ -z "$gateway" ]; then
             log 3 "Unable to determine gateway.  Exiting."
             exit 1
         fi
         before=$(date +%s)
-        if [ "$(func_ping "$gateway")" == true ]; then
-            fails=0
+        if [ "$(do_ping "$gateway")" == true ]; then
+            # We're good!
         else
-            func_restart
-            fails=0
+            restart
         fi
+        fails=0
         after=$(date +%s)
         (("delay=$LOOP-($after-$before)"))
         [ "$delay" -lt "1" ] && delay=10
@@ -284,19 +284,20 @@ check_loop() {
 ############
 
 check_once() {
+    local gateway
     if [ -z "$WLAN" ]; then
         log 3 "Unable to determine wireless interface name.  Exiting."
         exit 1
     fi
-    gateway=$(func_getgateway)
+    gateway=$(getgateway)
     if [ -z "$gateway" ]; then
         log 3 "Unable to determine gateway.  Exiting."
         exit 1
     fi
-    if [ "$(func_ping "$gateway")" == true ]; then
+    if [ "$(do_ping "$gateway")" == true ]; then
         fails=0
     else
-        func_restart
+        restart
         fails=0
     fi
 }
@@ -309,13 +310,13 @@ main() {
     init "$@"
     check_root "$@"
     help_ver "$@"
-    INTERACT=$(func_getinteract "$@")
+    INTERACT=$(getinteract "$@")
     iwconfig wlan0 power off # Turn off power management for WiFi
     # If we're interactive, just run it once
     if [ "$INTERACT" == true ]; then
-        func_banner "starting"
+        banner "starting"
         check_once # Check adapter for only one set of events
-        func_banner "complete"
+        banner "complete"
     else
         check_loop # Check adapter forever
     fi
