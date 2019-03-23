@@ -18,14 +18,6 @@
 
 # Location for check script instalation
 define THISSCRIPT SCRIPTLOC RUNSCRIPT DAEMONNAME RUNAS URL SCRIPTURL
-THISSCRIPT="doDaemon.sh"
-SCRIPTLOC="/usr/local/bin"
-RUNSCRIPT="checkWiFi.sh"
-DAEMONNAME="wificheck"
-SCRIPTURL="https://raw.githubusercontent.com/lbussy/rpi-wifi-checker/master/checkWiFi.sh"
-RUNAS="root"
-URL="wifi.brewpiremix.com"
-CMDLINE="curl -L $URL | sudo bash"
 
 ############
 ### Init
@@ -33,9 +25,14 @@ CMDLINE="curl -L $URL | sudo bash"
 
 init() {
     # Change to current dir (assumed to be in a repo) so we can get the script info
-    pushd . &> /dev/null || exit 1
-    SCRIPTPATH="$( cd "$(dirname "$0")" || exit ; pwd -P )"
-    THISSCRIPT="$(basename "$0")"
+    THISSCRIPT="doDaemon.sh"
+    SCRIPTLOC="/usr/local/bin"
+    RUNSCRIPT="checkWiFi.sh"
+    DAEMONNAME="wificheck"
+    SCRIPTURL="https://raw.githubusercontent.com/lbussy/rpi-wifi-checker/master/checkWiFi.sh"
+    RUNAS="root"
+    URL="wifi.brewpiremix.com"
+    CMDLINE="curl -L $URL | sudo bash"
     SCRIPTNAME="${THISSCRIPT%%.*}"
 }
 
@@ -127,7 +124,7 @@ install_script() {
     if [ -f "$SCRIPTLOC/$RUNSCRIPT" ]; then
         echo -e "\nTarget script $RUNSCRIPT already exists in $SCRIPTLOC." > /dev/tty
         while true; do
-            read -p "Do you want to overwrite? [Y/n]: " yn < /dev/tty
+            read -rp "Do you want to overwrite? [Y/n]: " yn < /dev/tty
             case "$yn" in
                 '' ) overwrite=1; break ;;
                 [Yy]* ) overwrite=1; break ;;
@@ -158,10 +155,10 @@ createdaemon () {
     daemonName="${2,,}"
     userName="$3"
     unitFile="/etc/systemd/system/$daemonName.service"
-    if [ -f "$unitfile" ]; then
+    if [ -f "$unitFile" ]; then
         echo -e "\nUnit file $daemonName.service already exists in /etc/systemd/system." > /dev/tty
         while true; do
-            read -p "Do you want to overwrite? [Y/n]: " yn < /dev/tty
+            read -rp "Do you want to overwrite? [Y/n]: " yn < /dev/tty
             case "$yn" in
                 '' ) overwrite=1; break ;;
                 [Yy]* ) overwrite=1; break ;;
@@ -181,20 +178,22 @@ createdaemon () {
         fi
     fi
     echo -e "\nCreating unit file for $daemonName."
-    echo -e "[Unit]" > "$unitFile"
-    echo -e "Description=Service for: $daemonName" >> "$unitFile"
-    echo -e "Documentation=https://github.com/lbussy/rpi-wifi-checker" >> "$unitFile"
-    echo -e "After=multi-user.target network.target" >> "$unitFile"
-    echo -e "\n[Service]" >> "$unitFile"
-    echo -e "Type=simple" >> "$unitFile"
-    echo -e "Restart=on-failure" >> "$unitFile"
-    echo -e "RestartSec=1" >> "$unitFile"
-    echo -e "User=$userName" >> "$unitFile"
-    echo -e "Group=$userName" >> "$unitFile"
-    echo -e "ExecStart=/bin/bash $scriptName" >> "$unitFile"
-    echo -e "SyslogIdentifier=$daemonName" >> "$unitFile"
-    echo -e "\n[Install]" >> "$unitFile"
-    echo -e "WantedBy=multi-user.target network.target" >> "$unitFile"
+    {
+        echo -e "[Unit]"
+        echo -e "Description=Service for: $daemonName"
+        echo -e "Documentation=https://github.com/lbussy/rpi-wifi-checker"
+        echo -e "After=multi-user.target network.target"
+        echo -e "\n[Service]"
+        echo -e "Type=simple"
+        echo -e "Restart=on-failure"
+        echo -e "RestartSec=1"
+        echo -e "User=$userName"
+        echo -e "Group=$userName"
+        echo -e "ExecStart=/bin/bash $scriptName"
+        echo -e "SyslogIdentifier=$daemonName"
+        echo -e "\n[Install]"
+        echo -e "WantedBy=multi-user.target network.target"
+    }  > "$unitFile"
     chown root:root "$unitFile"
     chmod 0644 "$unitFile"
     echo -e "Reloading systemd config."
@@ -218,7 +217,6 @@ banner(){
 ############
 
 main() {
-    local retval
     init "$@"
     checkroot "$@"
     help_ver "$@"
