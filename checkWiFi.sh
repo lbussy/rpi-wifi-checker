@@ -1,21 +1,20 @@
 #!/bin/bash
 
-# Copyright (C) 2018  Lee C. Bussy (@LBussy)
-
 # This file is part of LBussy's Raspberry Pi WiFi Checker (rpi-wifi-checker).
-#
-# Raspberry Pi WiFi Checker is free software: you can redistribute it and/or
-# modify it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the # License, or (at your
-# option) any later version.
-#
-# Raspberry Pi WiFi Checker is distributed in the hope that it will be useful,
+# Copyright (C) 2019 Lee C. Bussy (@LBussy)
+
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+
+# This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General
-# Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along with
-# Raspberry Pi WiFi Checker. If not, see <https://www.gnu.org/licenses/>.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 ### User-editable settings ###
 # Time (in seconds) in between tests when running in CRON or Daemon mode
@@ -111,14 +110,12 @@ usage() {
 version() {
 cat << EOF
 
-"$THISSCRIPT"
 
-Copyright (C) 2019 Lee C. Bussy (@LBussy)
-This is free software: you can redistribute it and/or modify it
-under the terms of the GNU General Public License as published
-by the Free Software Foundation, either version 3 of the License,
-or (at your option) any later version.
-<https://www.gnu.org/licenses/>
+
+"$THISSCRIPT" Copyright (C) 2019 Lee C. Bussy (@LBussy)
+This program comes with ABSOLUTELY NO WARRANTY.
+This is free software, and you are welcome to redistribute it
+under certain conditions.
 
 There is NO WARRANTY, to the extent permitted by law.
 EOF
