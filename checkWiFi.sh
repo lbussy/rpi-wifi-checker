@@ -263,9 +263,7 @@ check_loop() {
             exit 1
         fi
         before=$(date +%s)
-        if [ "$(do_ping "$gateway")" == true ]; then
-            # We're good!
-        else
+        if [ "$(do_ping "$gateway")" == false ]; then
             restart
         fi
         fails=0
