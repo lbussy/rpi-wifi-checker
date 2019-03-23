@@ -17,12 +17,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Location for check script instalation
-define SCRIPTLOC RUNSCRIPT DAEMONNAME RUNAS
+define THISSCRIPT SCRIPTLOC RUNSCRIPT DAEMONNAME RUNAS URL SCRIPTURL
+THISSCRIPT="doDaemon.sh"
 SCRIPTLOC="/usr/local/bin"
 RUNSCRIPT="checkWiFi.sh"
 DAEMONNAME="wificheck"
+SCRIPTURL="https://raw.githubusercontent.com/lbussy/rpi-wifi-checker/master/checkWiFi.sh"
 RUNAS="root"
-CMDLINE="curl -L wifi.brewpiremix.com | sudo bash"
+URL="wifi.brewpiremix.com"
+CMDLINE="curl -L $URL | sudo bash"
 
 ############
 ### Init
@@ -62,23 +65,23 @@ die() {
 ############
 
 checkroot() {
-  local retval
-  if [[ "$EUID" -ne 0 ]]; then
-    sudo -n true 2> /dev/null
-    retval="$?"
-    if [ "$retval" -eq 0 ]; then
-      echo -e "\nNot running as root, relaunching correctly.\n"
-      sleep 2
-      eval "$CMDLINE"
-      exit "$?"
-    else
-      # sudo not available, give instructions
-      echo -e "\nThis script must be run with root privileges."
-      echo -e "Enter the following command as one line:"
-      echo -e "$CMDLINE" 1>&2
-      exit 1
+    local retval
+    if [[ "$EUID" -ne 0 ]]; then
+        sudo -n true 2> /dev/null
+        retval="$?"
+        if [ "$retval" -eq 0 ]; then
+            echo -e "\nNot running as root, relaunching correctly.\n"
+            sleep 2
+            eval "$CMDLINE"
+            exit "$?"
+        else
+            # sudo not available, give instructions
+            echo -e "\nThis script must be run with root privileges."
+            echo -e "Enter the following command as one line:"
+            echo -e "$CMDLINE" 1>&2
+            exit 1
+        fi
     fi
-  fi
 }
 
 ############
@@ -88,7 +91,7 @@ checkroot() {
 # usage outputs to stdout the --help usage message.
 
 usage() {
-    echo -e "\n$SCRIPTNAME usage: sudo $SCRIPTPATH/$THISSCRIPT"
+    echo -e "\n$SCRIPTNAME usage: $CMDLINE"
 }
 
 # version outputs to stdout the --version message.
@@ -116,6 +119,32 @@ help_ver() {
 }
 
 ############
+### Install script
+############
+
+install_script() {
+    local overwrite
+    if [ -f "$SCRIPTLOC/$RUNSCRIPT" ]; then
+        echo -e "\nTarget script $RUNSCRIPT already exists in $SCRIPTLOC." > /dev/tty
+        while true; do
+            read -p "Do you want to overwrite? [Y/n]: " yn < /dev/tty
+            case "$yn" in
+                '' ) overwrite=1; break ;;
+                [Yy]* ) overwrite=1; break ;;
+                [Nn]* ) break ;;
+                * ) echo "Enter [Y]es or [n]o." ; sleep 1 ; echo ;;
+            esac
+        done
+        if [ "$overwrite" -ne 1 ]; then
+            return
+        fi
+    fi
+    echo -e "\nInstalling $RUNSCRIPT script to $SCRIPTLOC."
+    curl -o "$SCRIPTLOC/$RUNSCRIPT" "$SCRIPTURL"
+    chmod 744 "$SCRIPTLOC/$RUNSCRIPT"
+}
+
+############
 ### Create systemd unit file
 ### Required:
 ###   scriptName - Name of script to run under Bash
@@ -124,24 +153,38 @@ help_ver() {
 ############
 
 createdaemon () {
-    local scriptName="$SCRIPTLOC/$1 -d"
-    local daemonName="${2,,}"
-    local userName="$3"
-    local unitFile="/etc/systemd/system/$daemonName.service"
+    local scriptName daemonName userName unitFile overwrite
+    scriptName="$SCRIPTLOC/$1 -d"
+    daemonName="${2,,}"
+    userName="$3"
+    unitFile="/etc/systemd/system/$daemonName.service"
     if [ -f "$unitfile" ]; then
-        echo -e "\nStopping $daemonName daemon.";
-        systemctl stop "$daemonName";
-        echo -e "Disabling $daemonName daemon.";
-        systemctl disable "$daemonName";
-        echo -e "Removing unit file $unitFile";
-        rm "$unitFile"
+        echo -e "\nUnit file $daemonName.service already exists in /etc/systemd/system." > /dev/tty
+        while true; do
+            read -p "Do you want to overwrite? [Y/n]: " yn < /dev/tty
+            case "$yn" in
+                '' ) overwrite=1; break ;;
+                [Yy]* ) overwrite=1; break ;;
+                [Nn]* ) break ;;
+                * ) echo "Enter [Y]es or [n]o." ; sleep 1 ; echo ;;
+            esac
+        done
+        if [ "$overwrite" -ne 1 ]; then
+            return
+        else
+            echo -e "\nStopping $daemonName daemon.";
+            systemctl stop "$daemonName";
+            echo -e "Disabling $daemonName daemon.";
+            systemctl disable "$daemonName";
+            echo -e "Removing unit file $unitFile";
+            rm "$unitFile"
+        fi
     fi
     echo -e "\nCreating unit file for $daemonName."
-    echo -e "# Created for BrewPi version $VERSION" > "$unitFile"
-    echo -e "[Unit]" >> "$unitFile"
+    echo -e "[Unit]" > "$unitFile"
     echo -e "Description=Service for: $daemonName" >> "$unitFile"
     echo -e "Documentation=https://github.com/lbussy/rpi-wifi-checker" >> "$unitFile"
-    echo -e "After=multi-user.target" >> "$unitFile"
+    echo -e "After=multi-user.target network.target" >> "$unitFile"
     echo -e "\n[Service]" >> "$unitFile"
     echo -e "Type=simple" >> "$unitFile"
     echo -e "Restart=on-failure" >> "$unitFile"
@@ -151,7 +194,7 @@ createdaemon () {
     echo -e "ExecStart=/bin/bash $scriptName" >> "$unitFile"
     echo -e "SyslogIdentifier=$daemonName" >> "$unitFile"
     echo -e "\n[Install]" >> "$unitFile"
-    echo -e "WantedBy=multi-user.target" >> "$unitFile"
+    echo -e "WantedBy=multi-user.target network.target" >> "$unitFile"
     chown root:root "$unitFile"
     chmod 0644 "$unitFile"
     echo -e "Reloading systemd config."
@@ -180,8 +223,8 @@ main() {
     checkroot "$@"
     help_ver "$@"
     banner "starting"
-    retval="$?"
-    if [[ "$retval" == 0 ]]; then createdaemon "$RUNSCRIPT" "$DAEMONNAME" "$RUNAS"; fi
+    install_script
+    createdaemon "$RUNSCRIPT" "$DAEMONNAME" "$RUNAS"
     banner "complete"
 }
 
