@@ -1,6 +1,6 @@
 # Raspberry Pi WiFi Checker
 
-This command will install a script that will attempt to keep your WiFi running:
+The Raspberry Pi is a great little single-board computer.  Sometimes however when we use it as a server for web pages or home control applications, it loses WiFi connectivity.  This command will install a script that will attempt to keep your WiFi running:
 
     curl -L wifi.brewpiremix.com | sudo bash
 
@@ -51,8 +51,8 @@ If it looks like that (the host name may be different of course), you're fine.
 
 Those of you who have a Legacy BrewPi host that want to use this should ditch the wificheck in cron.d.  If you are running BrewPi Remix you already have something similar.
 
-It will log to: `/var/log/wificheck.log` and `/var/log/wificheck.err` if there are any issues.  If your RPi is REALLY flaky and a reboot is the only way to fix network issues, edit `/usr/local/bin/checkWiFi.sh` and change line line 34 to read `REBOOT=true` and it will reboot your Pi if it can't resolve the issue by "normal" means.  If you make that edit you will need to restart the daemon by issuing the command 
+It will log to: `/var/log/wificheck.log` and `/var/log/wificheck.err` if there are any issues.  If your RPi is REALLY flaky and a reboot is the only way to fix network issues, edit `/usr/local/bin/checkWiFi.sh` and change line line 34 to read `REBOOT=true` and it will reboot your Pi if it can't resolve the issue by "normal" means.  If you make that edit you will need to restart the daemon by issuing the command `sudo systemctl restart wificheck`.
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbMjM1MTM2Mzk5XX0=
+eyJoaXN0b3J5IjpbLTEyNjk0MDE5NzBdfQ==
 -->
