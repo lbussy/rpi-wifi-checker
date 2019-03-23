@@ -32,7 +32,7 @@ INTERVAL=10
 declare LOG_LOC
 LOG_LOC="/var/log"
 # Global variables declaration - No changes past this point
-declare STDOUT, STDERR, SCRIPTPATH, THISSCRIPT, SCRIPTNAME, WLAN, INTERACT
+declare STDOUT STDERR SCRIPTPATH THISSCRIPT SCRIPTNAME WLAN INTERACT
 declare -i fails=0
 
 ############
@@ -141,7 +141,7 @@ help_ver() {
 
 log() {
     local -i lvl
-    local msg, now, name, level
+    local msg now name level
     lvl="$1" && local msg="$2"
     now=$(date '+%Y-%m-%d %H:%M:%S')
     name="${THISSCRIPT%.*}" && name=${name^^}
@@ -250,7 +250,7 @@ func_banner(){
 
 check_loop() {
     local gateway
-    local -i before, after, delay
+    local -i before after delay
     before=0
     after=0
     delay=0
