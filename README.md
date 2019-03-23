@@ -1,7 +1,7 @@
 # Raspberry Pi WiFi Checker
-A stand-alone solution for the Raspberry Pi's WiFi issues
+
 This command will install a script that will attempt to keep your WiFi running:
-curl -L wifi.brewpiremix.com | sudo bash[/code]
+curl -L wifi.brewpiremix.com | sudo bash[
 You'll see something like:
 [code]pi@brewpi:~ $ curl -L wifi.brewpiremix.com | sudo bash
   % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
@@ -48,5 +48,5 @@ Those of you who have a Legacy BrewPi host that want to use this should ditch th
 It will log to: /var/log/wificheck.log and /var/log/wificheck.err if there are any issues.  If your RPi is REALLY flaky and a reboot is the only way to fix network issues, edit /usr/local/bin/checkWiFi.sh and change line line 34 to read REBOOT=true and it will reboot your Pi if it can't resolve the issue by "normal" means.
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTE1MjMzOTAyMzddfQ==
+eyJoaXN0b3J5IjpbLTM0MTUxODEyNF19
 -->
