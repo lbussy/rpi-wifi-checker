@@ -17,7 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 # Location for check script instalation
-define THISSCRIPT SCRIPTLOC RUNSCRIPT DAEMONNAME RUNAS URL SCRIPTURL
+declare THISSCRIPT SCRIPTLOC RUNSCRIPT DAEMONNAME RUNAS URL SCRIPTURL
 
 ############
 ### Init
