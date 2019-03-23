@@ -33,7 +33,7 @@ I've tested this on Stretch, but it should work on Wheezy.  The only part I have
  - iwconfig
  - ip
 
-If you want to be sure, go ahead and issue those two commands at the command line.  They won't make any changes without arguments.  As long as they don't return 'command not found' it all should work as-is.  After the new service is running, issue the command `sudo systemctl status wificheck` and you should see something like:
+If you want to be sure, go ahead and issue those two commands at the command line.  They won't make any changes without arguments.  As long as they don't return '`command not found`' it all should work as-is.  After the new service is running, issue the command `sudo systemctl status wificheck` and you should see something like:
 
     ● wificheck.service - Service for: wificheck
        Loaded: loaded (/etc/systemd/system/wificheck.service; enabled; vendor preset
@@ -53,5 +53,5 @@ Those of you who have a Legacy BrewPi host that want to use this should ditch th
 It will log to: `/var/log/wificheck.log` and `/var/log/wificheck.err` if there are any issues.  If your RPi is REALLY flaky and a reboot is the only way to fix network issues, edit `/usr/local/bin/checkWiFi.sh` and change line line 34 to read `REBOOT=true` and it will reboot your Pi if it can't resolve the issue by "normal" means.  If you make that edit you will need to restart the daemon by issuing the command `sudo systemctl restart wificheck`.
 
 <!--stackedit_data:
-eyJoaXN0b3J5IjpbLTExMDExMDYyNjBdfQ==
+eyJoaXN0b3J5IjpbLTQ5MTQwNDQzNl19
 -->
