@@ -319,7 +319,7 @@ main() {
     check_root "$@"
     help_ver "$@"
     INTERACT=$(getinteract "$@")
-    iwconfig wlan0 power off # Turn off power management for WiFi
+    iw dev wlan0 set power_save off # Turn off power management for WiFi
     # If we're interactive, just run it once
     if [ "$INTERACT" == true ]; then
         banner "starting"
